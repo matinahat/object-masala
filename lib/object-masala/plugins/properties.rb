@@ -1,0 +1,108 @@
+module ObjectMasala
+  module Plugins
+    module Properties
+      include ObjectMasala::Modifiers
+      module ClassMethods
+        
+        def properties
+          @props ||= HashWithIndifferentAccess.new
+        end
+
+        def property(*args)
+          
+          p = Property.new(*args)
+          properties[p.name] = p
+          
+          create_accessors_for(p)
+          create_validators_for(p)
+        end
+        
+        def property?(prop)
+          properties.keys.include?(prop.to_s)
+        end
+      
+        private
+        def prop_accessors_module_defined?
+          if method(:const_defined?).arity == 1 # Ruby 1.9 compat check
+            const_defined?('ObjectMasalaProperties')
+          else
+            const_defined?('ObjectMasalaProperties', false)
+          end
+        end
+        
+        def accessors_module
+          if prop_accessors_module_defined?
+            const_get 'ObjectMasalaProperties'
+          else
+            const_set 'ObjectMasalaProperties', Module.new
+          end
+        end
+        
+        def create_accessors_for(prop)
+          accessors_module.module_eval <<-end_eval
+            def #{prop.name}
+              @doc["#{prop.name}"]
+            end
+          
+            def #{prop.name}=(value)
+              @doc["#{prop.name}"] = value
+            end
+          end_eval
+
+          include accessors_module
+        end       
+        
+        def create_validators_for(prop)
+          attribute = prop.name.to_sym
+
+          if prop.options[:required]
+            validates_presence_of(attribute)
+          end
+
+          if prop.options[:unique]
+            validates_uniqueness_of(attribute)
+          end
+
+          if prop.options[:numeric]
+            number_options = prop.type == Integer ? {:only_integer => true} : {}
+            validates_numericality_of(attribute, number_options)
+          end
+
+          if prop.options[:format]
+            validates_format_of(attribute, :with => prop.options[:format])
+          end
+
+          if prop.options[:in]
+            validates_inclusion_of(attribute, :within => prop.options[:in])
+          end
+
+          if prop.options[:not_in]
+            validates_exclusion_of(attribute, :within => prop.options[:not_in])
+          end
+
+          if prop.options[:length]
+            length_options = case prop.options[:length]
+            when Integer
+              {:minimum => 0, :maximum => prop.options[:length]}
+            when Range
+              {:within => prop.options[:length]}
+            when Hash
+              prop.options[:length]
+            end
+            validates_length_of(attribute, length_options)
+          end
+        end
+        
+      end
+      
+      module InstanceMethods
+        #TODO: this probably should be a #select of just the props that are nil
+        def check_defaults
+          self.class.properties.each do |name, prop|
+            self.send("#{prop.name}=".to_sym, prop.default_value) if self.send(prop.name.to_sym).nil?
+          end        
+        end
+      end
+    end
+  end
+end
