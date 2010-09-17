@@ -9,8 +9,9 @@ module ObjectMasala
         plugin Plugins::Model
         plugin Plugins::HashAccessors
         plugin Plugins::Properties
-        plugin Plugins::Validations        
-        plugin Plugins::MongoPersistence        
+        plugin Plugins::MongoPersistence
+        plugin Plugins::Hooks        
+        plugin Plugins::MongoValidations        
       end
       super
     end

@@ -1,10 +1,4 @@
-# gem "bson", ">= 1.0.4"
-# gem "bson_ext", ">= 1.0.4"
-# gem "mongo", ">= 1.0.7"
 gem "activesupport"
-
-# require "bson"
-# require "mongo"
 
 require 'active_support/core_ext/object/blank'
 require 'active_support/core_ext/hash'
@@ -38,6 +32,8 @@ module ObjectMasala
     autoload :Property,                "object-masala/plugins/property"
     autoload :HashAccessors,           "object-masala/plugins/hash_accessors"
     autoload :Validations,             "object-masala/plugins/validations"
+    autoload :MongoValidations,        "object-masala/plugins/mongo_validations"
+    autoload :Hooks,                   "object-masala/plugins/hooks"
     autoload :Timestamps,              "object-masala/plugins/timestamps"
     autoload :MongoPersistence,        "object-masala/plugins/mongo_persistence"
     autoload :RedisPersistence,        "object-masala/plugins/redis_persistence"
@@ -45,3 +41,7 @@ module ObjectMasala
 end
 
 require 'object-masala/support/descendant_appends'
+require 'object-masala/support/assertions'
+require 'object-masala/support/chainable'
+require 'object-masala/support/hook'
+require 'object-masala/support/local_object_space'

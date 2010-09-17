@@ -4,6 +4,7 @@ gem 'activesupport',      '3.0.0'
 gem 'rake',               '0.8.7'
 gem 'i18n'
 gem 'validatable'
+gem 'stringex'
 
 #persistence engines
 gem 'redis'

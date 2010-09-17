@@ -9,7 +9,7 @@ module ObjectMasala
     module MongoPersistence
       include ObjectMasala::Modifiers
 
-      module ClassMethods
+      module ClassMethods        
         # Returns this models own db attribute if set, otherwise will return ObjectMasala.db
         def db
           @db || raise(ArgumentError, "No db supplied")
@@ -74,29 +74,26 @@ module ObjectMasala
         attr_accessor :removed, :is_new, :errors
 
         def initialize(doc={}, is_new=true)
+          if self.class.plugins.include?(ObjectMasala::Plugins::Properties)
+            doc.each do |k,v|
+              self.send("#{k}=".to_sym, doc.delete(k)) if self.respond_to?("#{k}=".to_sym) and not self.class.properties.key?(k)
+            end
+          else
+            doc.each do |k,v|
+                self.send("#{k}=".to_sym, doc.delete(k)) if self.respond_to?("#{k}=".to_sym)
+            end
+          end
+          
           @doc = doc.stringify_keys
           self.removed = false
           self.is_new  = is_new
-          
-          self.check_defaults if self.respond_to?(:check_defaults)
+          self.check_defaults if self.respond_to?(:check_defaults)          
         end
-    
-        # Override this with your own validate() method for validations.
-        # Simply push your errors into the self.errors property and
-        # if self.errors remains empty your document will be valid.
-        #  def validate
-        #    self.errors << ["name", "cannot be blank"]
-        #  end
-        # def validate
-        #   true
-        # end
-        #     
-        # def valid?
-        #   self.send(:before_validate) if self.respond_to?(:before_validate)
-        #   validate
-        #   self.send(:after_validate) if self.respond_to?(:after_validate)
-        # end
-    
+        
+        def persistable?
+          true
+        end
+            
         def is_new?
           self.is_new == true
         end
@@ -186,18 +183,7 @@ module ObjectMasala
         # Return this document as a hash.
         def to_hash
           @doc || {}
-        end
-    
-        # protected
-        #     
-        # def doc
-        #   @doc
-        # end
-        #     
-        # def doc=(v)
-        #   @doc = v
-        # end
-                
+        end    
       end
     end
   end
