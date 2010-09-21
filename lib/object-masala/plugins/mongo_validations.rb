@@ -1,3 +1,5 @@
+require 'validatable'
+
 module ObjectMasala
   module Plugins
     module MongoValidations
