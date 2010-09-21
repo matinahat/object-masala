@@ -28,8 +28,8 @@ module ObjectMasala
         end
 
         # Override this method on your model if you want to use a different collection name
-        def collection_name
-          @collection_name || self.to_s
+        def collection_name(name=nil)
+          @collection_name ||= name.nil? ? self.to_s.tableize : name
         end
 
         # Return the raw MongoDB collection for this model

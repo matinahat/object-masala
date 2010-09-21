@@ -4,12 +4,17 @@ class MyMongoDocument
   include ObjectMasala::MongoDocument
   
   MyMongoDocument.db = Mongo::Connection.new().db('masala')
-  MyMongoDocument.collection_name = 'test'
   
   property :required_string, String, :required => true
   property :unique_string,   String, :unique => true
-  
 end
+
+class MyMongoDocument2
+  include ObjectMasala::MongoDocument
+  
+  collection_name 'test'
+end
+
 
 describe ObjectMasala::Plugins::MongoPersistence do
   before(:each) do
@@ -28,6 +33,20 @@ describe ObjectMasala::Plugins::MongoPersistence do
     it "should respond to #{p}" do
       @doc.should respond_to(p.to_sym)
     end  
+  end
+  
+  describe '.collection_name' do
+    context 'default' do
+      it 'should set the collection name to the pluralized lowercase' do
+        MyMongoDocument.collection_name.should == 'my_mongo_documents'
+      end
+    end
+    
+    context 'explictly set' do
+      it 'should take name passed to .collection_name' do
+        MyMongoDocument2.collection_name.should == 'test'
+      end
+    end
   end
   
   it "should persist" do
@@ -53,9 +72,7 @@ describe ObjectMasala::Plugins::MongoPersistence do
 
       @doc2 = MyMongoDocument.new(:required_string => @doc.required_string, :unique_string => @doc.unique_string)    
       @doc2.should_not be_valid
-      @doc2.errors.on(:unique_string).should include("has already been taken")
-      
+      @doc2.errors.on(:unique_string).should include("is already taken")
     end
-    
   end
 end
