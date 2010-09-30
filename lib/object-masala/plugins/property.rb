@@ -1,11 +1,11 @@
 module ObjectMasala
   module Plugins
     class Property
-      attr_accessor :name, :type, :options, :default_value
+      attr_accessor :scope, :name, :type, :options, :default_value
 
       def initialize(*args)
         options = args.extract_options!
-        @name, @type = args.shift.to_s, args.shift
+        @scope, @name, @type = args.shift.to_s, args.shift, args.shift
         
         self.options = (options || {}).symbolize_keys
         self.default_value = self.options[:default]

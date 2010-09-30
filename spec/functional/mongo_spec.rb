@@ -5,20 +5,25 @@ class MyMongoDocument
   
   MyMongoDocument.db = Mongo::Connection.new().db('masala')
   
+  property :optional_string, String
   property :required_string, String, :required => true
   property :unique_string,   String, :unique => true
+  
 end
 
-class MyMongoDocument2
+class MySingleReferenceMongoDocument
   include ObjectMasala::MongoDocument
   
-  collection_name 'test'
+  MySingleReferenceMongoDocument.db = Mongo::Connection.new().db('masala')
+    
+  reference :ref, :one, :key => :required_string, :klass => MyMongoDocument
 end
 
 
 describe ObjectMasala::Plugins::MongoPersistence do
   before(:each) do
     MyMongoDocument.collection.drop
+    MySingleReferenceMongoDocument.collection.drop
     
     @doc = MyMongoDocument.new    
   end
@@ -35,27 +40,22 @@ describe ObjectMasala::Plugins::MongoPersistence do
     end  
   end
   
-  describe '.collection_name' do
-    context 'default' do
-      it 'should set the collection name to the pluralized lowercase' do
-        MyMongoDocument.collection_name.should == 'my_mongo_documents'
-      end
-    end
-    
-    context 'explictly set' do
-      it 'should take name passed to .collection_name' do
-        MyMongoDocument2.collection_name.should == 'test'
-      end
-    end
-  end
-  
   it "should persist" do
     @doc[:required_string] = "baz"
     @doc[:foo] = "bar"
     @doc.should be_valid
-    @doc.insert
+    @doc.save
     MyMongoDocument.first.should == @doc
   end
+  
+  it "should find by passing thru options" do
+    @doc[:required_string] = "baz"
+    @doc[:foo] = "bar"
+    @doc.should be_valid
+    @doc.save
+    MyMongoDocument.first(:foo => 'bar').should == @doc
+  end
+  
   
   describe "validations" do
     it "should check required props" do
@@ -67,12 +67,42 @@ describe ObjectMasala::Plugins::MongoPersistence do
       @doc[:required_string] = "baz"
       @doc[:unique_string] = "bar"
       @doc.should be_valid
-      @doc.insert
+      @doc.save
       MyMongoDocument.first.should == @doc
 
       @doc2 = MyMongoDocument.new(:required_string => @doc.required_string, :unique_string => @doc.unique_string)    
       @doc2.should_not be_valid
       @doc2.errors.on(:unique_string).should include("is already taken")
+      
+    end    
+  end
+  
+  describe "references" do
+    it "should set the value of a single reference prop to the key" do
+      @ref = MyMongoDocument.new(:required_string => 'foo')    
+      @ref.save
+
+      @doc = MySingleReferenceMongoDocument.new
+      @doc.ref = @ref
+
+      @doc.ref.should == @ref
+      @doc.should be_valid
+      @doc.save.should be_true
+      @doc.ref.required_string.should == @ref.required_string
     end
+    
+    it "should set the value of a single reference prop to the key via the constructor" do
+      @ref = MyMongoDocument.new(:required_string => 'foo')    
+      @ref.save
+
+      @doc = MySingleReferenceMongoDocument.new(:ref => @ref)
+      @doc.ref = @ref
+
+      @doc.ref.should == @ref
+      @doc.should be_valid
+      @doc.save.should be_true
+      @doc.ref.required_string.should == @ref.required_string
+    end
+    
   end
 end

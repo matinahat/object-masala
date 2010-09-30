@@ -9,13 +9,37 @@ module ObjectMasala
         end
 
         def property(*args)
-          
-          p = Property.new(*args)
+          p = Property.new(*args.unshift(:local))
           properties[p.name] = p
           
           create_accessors_for(p)
           create_validators_for(p)
+          
+          # TODO: do we need something like this, to set things up, like Arrays,
+          #initialize_type(p)
         end
+        
+        def reference(*args)
+          p = Property.new(*args.unshift(:ref))
+          properties[p.name] = p
+          
+          if p.type == :many
+            create_many_ref_for(p)
+          else
+            create_single_ref_for(p)
+          end
+          create_validators_for(p)
+          initialize_type(p)
+          
+        end
+         
+        def embed(*args)
+          p = Property.new(*args.unshift(:embed))
+          properties[p.name] = p
+          
+          create_single_embedder_for(p)
+          create_validators_for(p)
+        end  
         
         def property?(prop)
           properties.keys.include?(prop.to_s)
@@ -50,8 +74,49 @@ module ObjectMasala
           end_eval
 
           include accessors_module
+        end
+        
+        def create_single_embedder_for(prop)
+          accessors_module.module_eval <<-end_eval
+            def #{prop.name}
+              @doc["#{prop.name}"]
+            end
+          
+            def #{prop.name}=(value)
+              @doc["#{prop.name}"] = value
+            end
+          end_eval
+
+          include accessors_module
+        end       
+      
+        def create_single_ref_for(prop)
+          #TODO: refs should obviously only apply to persistable models. check it, yo!
+          accessors_module.module_eval <<-end_eval
+            def #{prop.name}
+              #{prop.options[:klass]}.first(:#{prop.options[:key]} => @doc["#{prop.name}"])
+            end
+          
+            def #{prop.name}=(value)
+              @doc["#{prop.name}"] = value["#{prop.options[:key]}"]
+            end
+          end_eval
+
+          include accessors_module
         end       
         
+        def create_many_ref_for(prop)
+          #TODO: refs should obviously only apply to persistable models. check it, yo!
+          # puts "adding #{prop.name}<br>"
+          # accessors_module.module_eval <<-end_eval
+          #   attr_accessor prop.name
+          # end_eval
+          attr_accessor prop.name.to_sym
+          
+          # include accessors_module
+        end       
+        
+                 
         def create_validators_for(prop)
           attribute = prop.name.to_sym
 
@@ -93,16 +158,24 @@ module ObjectMasala
           end
         end
         
+        def initialize_type(prop)
+          #TODO: make this thing work
+          # puts "initializing #{prop.name} as a #{prop.type}<br>"
+          # if prop.type == Array or prop.type == :many
+          #   self.send("#{prop.name}=".to_sym, [])
+          # end
+        end
+        
       end
       
       module InstanceMethods
         #TODO: this probably should be a #select of just the props that are nil
         def check_defaults
           self.class.properties.each do |name, prop|
-            self.send("#{prop.name}=".to_sym, prop.default_value) if self.send(prop.name.to_sym).nil?
-          end        
+            self.send("#{prop.name}=".to_sym, prop.default_value) if prop.scope.to_sym == :local and self.send(prop.name.to_sym).nil?
+          end
         end
       end
     end
-  end
+  end  
 end

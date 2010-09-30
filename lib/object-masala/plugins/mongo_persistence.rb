@@ -31,7 +31,7 @@ module ObjectMasala
         def collection_name(name=nil)
           @collection_name ||= name.nil? ? self.to_s.tableize : name
         end
-
+        
         # Return the raw MongoDB collection for this model
         def collection
           @collection ||= self.db.collection(self.collection_name)
@@ -45,6 +45,7 @@ module ObjectMasala
         # Query MongoDB and return one document only. Same arguments as http://api.mongodb.org/ruby/current/Mongo/Collection.html#find_one-instance_method
         def find_one(query={}, opts={})
           return nil unless doc = self.collection.find_one(query, opts)
+          
           self.new(doc, false)
         end
       
@@ -59,8 +60,12 @@ module ObjectMasala
         end
       
         # Return the first document in the collection
-        def first
-          find.limit(1).next_document
+        # def first
+        #   find.limit(1).next_document
+        # end
+        def first(query={}, opts={})
+          return nil unless doc = self.collection.find_one(query, opts)
+          self.new(doc, false)
         end
       
         # Return the number of documents in the collection
@@ -74,17 +79,38 @@ module ObjectMasala
         attr_accessor :removed, :is_new, :errors
 
         def initialize(doc={}, is_new=true)
+          refs = {}
+          embeds = {}
+          
           if self.class.plugins.include?(ObjectMasala::Plugins::Properties)
             doc.each do |k,v|
-              self.send("#{k}=".to_sym, doc.delete(k)) if self.respond_to?("#{k}=".to_sym) and not self.class.properties.key?(k)
+              if self.class.properties.key?(k) and self.class.properties[k].scope.to_sym != :local
+                if self.class.properties[k].scope.to_sym == :ref
+                  refs[k] = doc.delete(k)
+                elsif self.class.properties[k].scope.to_sym == :embed
+                  embeds[k] = doc.delete(k)                  
+                end
+              else
+                self.send("#{k}=".to_sym, doc.delete(k)) if self.respond_to?("#{k}=".to_sym) and not self.class.properties.key?(k)
+              end
             end
           else
             doc.each do |k,v|
-                self.send("#{k}=".to_sym, doc.delete(k)) if self.respond_to?("#{k}=".to_sym)
+              self.send("#{k}=".to_sym, doc.delete(k)) if self.respond_to?("#{k}=".to_sym)
             end
           end
           
           @doc = doc.stringify_keys
+          
+          refs.each do |k,v|
+            if is_new
+              self.send("#{k}=".to_sym, v)
+            else
+              @doc[k] = v
+            end
+
+          end
+          
           self.removed = false
           self.is_new  = is_new
           self.check_defaults if self.respond_to?(:check_defaults)          
@@ -117,6 +143,11 @@ module ObjectMasala
           if obj = self.class.find({"_id" => @doc["_id"]}).next_document
             @doc = obj.doc; true
           end
+        end
+        
+        def save(opts={})
+          result = new? ? insert(opts) : update(opts)
+          result
         end
 
         # Insert the document into the database. Will return false if the document has
